@@ -6,7 +6,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 // غيّر هذا الرابط إلى رابط مجلد toilets على موقعك (وينتهي بشرطة مائلة /)
-const String siteUrl = 'https://yourdomain.com/toilets/';
+const String siteUrl = 'https://contact.is-best.net/toilets/';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
