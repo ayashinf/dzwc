@@ -26,7 +26,7 @@ jobs:
           cp /tmp/main.dart lib/main.dart
 
       - name: Add packages
-        run: flutter pub add flutter_inappwebview:^6.1.5 permission_handler url_launcher
+        run: flutter pub add webview_flutter webview_flutter_android permission_handler url_launcher
 
       - name: Patch Android manifest
         run: |
