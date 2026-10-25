@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 // غيّر هذا الرابط إلى رابط مجلد toilets على موقعك (وينتهي بشرطة مائلة /)
-const String siteUrl = 'https://contact.is-best.net/toilets/';
+const String siteUrl = 'https://yourdomain.com/toilets/';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,25 +24,55 @@ class WebShell extends StatefulWidget {
 }
 
 class _WebShellState extends State<WebShell> {
-  InAppWebViewController? _c;
+  late final WebViewController _c;
   bool _failed = false;
-  double _progress = 0;
+  int _progress = 0;
 
   @override
   void initState() {
     super.initState();
     [Permission.locationWhenInUse, Permission.camera].request();
+
+    final host = Uri.parse(siteUrl).host;
+    _c = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(NavigationDelegate(
+        onProgress: (p) => setState(() => _progress = p),
+        onPageStarted: (_) => setState(() => _failed = false),
+        onWebResourceError: (e) {
+          if (e.isForMainFrame ?? true) setState(() => _failed = true);
+        },
+        onNavigationRequest: (req) {
+          final uri = Uri.parse(req.url);
+          if (uri.host == host ||
+              uri.scheme == 'about' ||
+              uri.scheme == 'data' ||
+              uri.scheme == 'blob') {
+            return NavigationDecision.navigate;
+          }
+          launchUrl(uri, mode: LaunchMode.externalApplication);
+          return NavigationDecision.prevent;
+        },
+      ))
+      ..loadRequest(Uri.parse(siteUrl));
+
+    final platform = _c.platform;
+    if (platform is AndroidWebViewController) {
+      platform.setGeolocationPermissionsPromptCallbacks(
+        onShowPrompt: (request) async =>
+            const GeolocationPermissionsResponse(allow: true, retain: true),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final host = Uri.parse(siteUrl).host;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
-        if (_c != null && await _c!.canGoBack()) {
-          _c!.goBack();
+        if (await _c.canGoBack()) {
+          _c.goBack();
         } else {
           SystemNavigator.pop();
         }
@@ -49,41 +80,9 @@ class _WebShellState extends State<WebShell> {
       child: Scaffold(
         body: SafeArea(
           child: Stack(children: [
-            InAppWebView(
-              initialUrlRequest: URLRequest(url: WebUri(siteUrl)),
-              initialSettings: InAppWebViewSettings(
-                javaScriptEnabled: true,
-                domStorageEnabled: true,
-                geolocationEnabled: true,
-                useShouldOverrideUrlLoading: true,
-              ),
-              onWebViewCreated: (c) => _c = c,
-              onProgressChanged: (c, p) => setState(() => _progress = p / 100),
-              onLoadStop: (c, u) => setState(() => _failed = false),
-              onReceivedError: (c, req, err) {
-                if (req.isForMainFrame ?? true) setState(() => _failed = true);
-              },
-              onGeolocationPermissionsShowPrompt: (c, origin) async =>
-                  GeolocationPermissionShowPromptResponse(
-                      origin: origin, allow: true, retain: true),
-              onPermissionRequest: (c, req) async => PermissionResponse(
-                  resources: req.resources,
-                  action: PermissionResponseAction.GRANT),
-              shouldOverrideUrlLoading: (c, action) async {
-                final uri = action.request.url;
-                if (uri == null) return NavigationActionPolicy.ALLOW;
-                if (uri.host == host ||
-                    uri.scheme == 'about' ||
-                    uri.scheme == 'data' ||
-                    uri.scheme == 'blob') {
-                  return NavigationActionPolicy.ALLOW;
-                }
-                await launchUrl(Uri.parse(uri.toString()),
-                    mode: LaunchMode.externalApplication);
-                return NavigationActionPolicy.CANCEL;
-              },
-            ),
-            if (_progress < 1) LinearProgressIndicator(value: _progress),
+            WebViewWidget(controller: _c),
+            if (_progress < 100)
+              LinearProgressIndicator(value: _progress / 100),
             if (_failed)
               Positioned.fill(
                 child: Container(
@@ -96,7 +95,7 @@ class _WebShellState extends State<WebShell> {
                       ElevatedButton(
                         onPressed: () {
                           setState(() => _failed = false);
-                          _c?.reload();
+                          _c.loadRequest(Uri.parse(siteUrl));
                         },
                         child: const Text('إعادة المحاولة'),
                       ),
