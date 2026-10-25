@@ -5,7 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 // غيّر هذا الرابط إلى رابط مجلد toilets على موقعك (وينتهي بشرطة مائلة /)
-const String siteUrl = 'https://yourdomain.com/toilets/';
+const String siteUrl = 'https://contact.is-best.net/toilets/';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
